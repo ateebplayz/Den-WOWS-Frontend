@@ -37,7 +37,7 @@ export default function Admin() {
         <BigBlackSwitch/>
         <Users/>
         <Stocks/>
-        <News/>
+        <NewsThing/>
         <Card className={'w-full p-8'}>
           <CardContent>
             <h1 className={'text-5xl font-black text-white'}>Scoreboard (you suck)</h1>
@@ -356,7 +356,7 @@ const Stocks = () => {
   )
 }
 
-const News = () => {
+const NewsThing = () => {
   const [stocks, setStocks] = useState<Array<Stock>>([])
   const [news, setNews] = useState<Array<News>>([])
   const [createNewsDto, setCreateNewsDto] = useState<CreateNewsDto>({ headline: '', desc: '', effectAt: 0, effects: [], sequence: 0})
