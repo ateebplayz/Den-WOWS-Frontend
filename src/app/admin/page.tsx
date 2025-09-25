@@ -169,7 +169,7 @@ const Users = () => {
                       <Label>Balance</Label>
                       <Input id={'balance'} onChange={(e) => {setCreateUserDto({...createUserDto, balance: Number(e.target.value)})}} value={createUserDto.balance} placeholder={'Starting Balance'} type={'number'} />
                       <Label>Password (More than 6 characters)</Label>
-                      <Input id={'balance'} onChange={(e) => {setCreateUserDto({...createUserDto, password: e.target.value})}} value={createUserDto.password} placeholder={'Password'} type={'password'} />
+                      <Input id={'balance'} onChange={(e) => {setCreateUserDto({...createUserDto, password: e.target.value})}} value={createUserDto.password} placeholder={'Password'}/>
                     </div>
                   </div>
                   <DialogFooter>
