@@ -229,7 +229,7 @@ export default function Home() {
         <h1 className="text-3xl font-black text-primary/40">wolves of wall street</h1>
         <h2 className="text-xl font-light text-white/60">desktop edition</h2>
         <h2 className="text-xl font-light text-white/60">{timeLeft}</h2>
-        <h2 className="text-xl font-light text-white/60 mt-2">logged in as : ateebsohail</h2>
+        <h2 className="text-xl font-light text-white/60 mt-2">logged in as : {me?.username}</h2>
         <motion.div
           initial={{ opacity: 0, translateY: '50%' }}
           animate={{ opacity: 1, translateY: '0%' }}
