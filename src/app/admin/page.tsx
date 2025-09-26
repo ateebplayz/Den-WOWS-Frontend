@@ -465,7 +465,7 @@ const NewsThing = () => {
                     </div>
                   </div>
                   <div className="grid focus:outline-none focus:ring-0 [&_*]:focus:outline-none [&_*]:focus:ring-0">
-                    <Label>Effects (-1 for No Effect)</Label>
+                    <Label>Effects (Fill ALL)</Label>
                     <div className="gap-3 mt-4 flex flex-col">
                       {
                         createNewsDto.effects.map((effect) => (
@@ -491,7 +491,7 @@ const NewsThing = () => {
                       <Button className={'text-sm'} variant="outline">Cancel</Button>
                     </DialogClose>
                     <DialogClose asChild>
-                      <Button onClick={createNews} className={'text-sm'} variant="secondary">Confirm</Button>
+                      <Button onClick={createNews} className={`text-sm ${createNewsDto.effects.find(s => s.newBuy == -1 && "pointer-events-none opacity-50")}`} variant="secondary">Confirm</Button>
                     </DialogClose>
                   </DialogFooter>
                 </DialogContent>
