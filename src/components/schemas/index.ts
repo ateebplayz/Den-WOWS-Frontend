@@ -61,3 +61,9 @@ export interface Flag {
   startedAt: number;
   accumulatedSeconds: number;
 }
+export interface User {
+  username: string;
+  password: string;
+  balance: number;
+  stocksOwned: StockUser[];
+}

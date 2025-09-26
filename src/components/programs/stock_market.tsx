@@ -10,40 +10,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-interface Stock {
-  name: string;
-  prices: (number | null)[];
-  price: number;
-  oldPrice: number;
-}
-
-// Generate prices with 7 random values and 3 nulls
-const generatePrices = (): (number | null)[] => {
-  const randomPrices = Array.from({ length: 7 }, () =>
-    parseFloat((Math.random() * 500 + 50).toFixed(2))
-  );
-  return [...randomPrices, null, null, null];
-};
-
-const stocks: Stock[] = [
-  "ateeb sohail ltd",
-  "isl ltd",
-  "hyperbyte solutions",
-  "lumina tech corp",
-  "pixelstream media",
-  "nova energy plc",
-  "aurum digital",
-  "echobank holdings"
-].map(name => {
-  const prices = generatePrices();
-  return {
-    name,
-    prices,
-    price: prices[6] || 0, // latest available
-    oldPrice: prices[5] || 0
-  };
-});
+import {Stock} from "@/components/schemas";
+import {useState} from "react";
+import {Label} from "@/components/ui/label";
+import axios from "axios";
 
 const getPercentage = (price: number, old: number): string => {
   if (price > old) {
@@ -53,7 +23,9 @@ const getPercentage = (price: number, old: number): string => {
   } else return '0%';
 };
 
-export default function StockProgram() {
+const serverUrl = process.env.NEXT_PUBLIC_API_URL;
+
+export default function StockProgram({ stocks } : {stocks: Array<Stock>}) {
   return (
     <div className={'w-full flex flex-col justify-center items-center pb-8'}>
       <h1 className={'text-primary/60 text-3xl font-black text-center'}>wolves stock exchange</h1>
@@ -63,23 +35,65 @@ export default function StockProgram() {
       </p>
       <div className={'flex flex-row flex-wrap justify-center items-center w-full gap-2 mt-8'}>
         {stocks.map((stock, index) => {
-          const chartData = stock.prices.map((price, i) => ({
+          let oldPrice = stock.price
+          if (stock.priceHistory.length >= 2) {
+            oldPrice = stock.priceHistory[stock.priceHistory.length - 2];
+          }
+          const chartData = stock.priceHistory.map((price, i) => ({
             name: i + 1, // just a number (1 to 10)
             value: price,
           }));
+          const [amount, setAmount] = useState(0);
+          const [disabled, setDisabled] = useState(false);
+          const [error, setError] = useState('');
+          const [open, setOpen] = useState(false);
+
+          const buyStock = async () => {
+            setDisabled(true)
+            try {
+              const resp = await axios.post(`${serverUrl}/stocks/buy/${stock._id}`, { amount }, {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                }
+              })
+              setOpen(false);
+              setError('');
+              setAmount(0)
+            } catch (e: any) {
+              setError(e.response.data.message)
+            }
+            setDisabled(false)
+          }
+
+          const sellStock = async () => {
+            setDisabled(true)
+            try {
+              const resp = await axios.post(`${serverUrl}/stocks/sell/${stock._id}`, { amount }, {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                }
+              })
+              setOpen(false);
+              setError('');
+              setAmount(0)
+            } catch (e: any) {
+              setError(e.response.data.message)
+            }
+            setDisabled(false)
+          }
 
           return (
-            <Dialog key={index}>
+            <Dialog open={open} onOpenChange={setOpen} key={index}>
               <form>
                 <DialogTrigger asChild>
                   <Card className={'p-0 gap-0 text-white transition duration-500 hover:opacity-75 cursor-pointer'}>
                     <CardContent className={'p-3'}>
                       <h1 className={'text-sm font-light'}>{stock.name}</h1>
                       <h1 className={`text-xs font-light ${
-                        stock.price > stock.oldPrice ? 'text-green-500' :
-                          stock.price < stock.oldPrice ? 'text-red-500' : 'text-white'
+                        stock.price > oldPrice ? 'text-green-500' :
+                          stock.price < oldPrice ? 'text-red-500' : 'text-white'
                       }`}>
-                        ${stock.oldPrice.toFixed(2)} -&gt; ${stock.price.toFixed(2)}
+                        ${oldPrice.toFixed(2)} -&gt; ${stock.price.toFixed(2)}
                       </h1>
                     </CardContent>
                   </Card>
@@ -90,10 +104,10 @@ export default function StockProgram() {
                       <span>buy {stock.name}</span>
                       <span className={`font-light text-white text-sm`}>
                         ${stock.price} <span className={`${
-                        stock.price > stock.oldPrice ? 'text-green-500' :
-                          stock.price < stock.oldPrice ? 'text-red-500' : 'text-white'
+                        stock.price > oldPrice ? 'text-green-500' :
+                          stock.price < oldPrice ? 'text-red-500' : 'text-white'
                       }`}>
-                          ({getPercentage(stock.price, stock.oldPrice)})
+                          ({getPercentage(stock.price, oldPrice)})
                         </span>
                       </span>
                     </DialogTitle>
@@ -115,7 +129,7 @@ export default function StockProgram() {
                             if (active && payload && payload.length) {
                               return (
                                 <div className="bg-black text-white rounded-md p-2 text-sm shadow-md">
-                                  <p className="font-semibold">headline {label}</p>
+                                  <p className="font-semibold">headline {Number(label || 0) - 1}</p>
                                   <p>${payload[0].value}</p>
                                 </div>
                               );
@@ -137,15 +151,17 @@ export default function StockProgram() {
                     </ResponsiveContainer>
                     <h1 className={'text-white/50 w-full text-center'}>headline #</h1>
                     <div className="grid gap-3 mt-4">
-                      <Input placeholder={'# of shares to purchase'} type={"number"} />
+                      {error && <h1 className={'w-full p-3 rounded border border-red-500 text-red-500 bg-red-300'}>{error}</h1>}
+                      <Label># of shares to sell/purchase</Label>
+                      <Input value={amount} onChange={(e) => { setAmount(Number(e.target.value))}} placeholder={'# of shares to sell/purchase'} type={"number"} />
                     </div>
                   </div>
-                  <DialogFooter>
+                  <DialogFooter className={`transition duration-500 ${disabled && "pointer-events-none opacity-50"}`}>
                     <DialogClose asChild>
                       <Button className={'text-sm'} variant="outline">Cancel</Button>
                     </DialogClose>
-                    <Button className={'text-sm'} variant={'destructive'} type="submit">Sell</Button>
-                    <Button className={'text-sm'} variant="secondary">Purchase</Button>
+                    <Button onClick={sellStock} className={'text-sm'} variant={'destructive'} type="submit">Sell</Button>
+                    <Button onClick={buyStock} className={'text-sm'} variant="secondary">Purchase</Button>
                   </DialogFooter>
                 </DialogContent>
               </form>

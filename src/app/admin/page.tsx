@@ -26,7 +26,7 @@ import {
   User,
   News,
   Flag,
-  UpdateNewsDto
+  UpdateNewsDto, StockUser
 } from "@/components/schemas";
 const serverUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -38,58 +38,7 @@ export default function Admin() {
         <Users/>
         <Stocks/>
         <NewsThing/>
-        <Card className={'w-full p-8'}>
-          <CardContent>
-            <h1 className={'text-5xl font-black text-white'}>Scoreboard (you suck)</h1>
-            <Table className={'text-white'}>
-              <TableHeader className={'text-white'}>
-                <TableRow className={'text-white'}>
-                  <TableHead className="w-[100px] text-white">Team Name</TableHead>
-                  <TableHead className={'text-white'}>Balance</TableHead>
-                  <TableHead className={'text-white'}>Net Worth</TableHead>
-                  <TableHead className="text-right text-white">Stocks</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">ISL RR TEAM M</TableCell>
-                  <TableCell>150,000$</TableCell>
-                  <TableCell>600,000$</TableCell>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <TableCell className="text-right">Open</TableCell>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px] z-50">
-                      <DialogHeader>
-                        <DialogTitle className={'text-primary/60 font-black flex text-xl flex-col'}>
-                          Stocks of ISL RR TEAM M
-                        </DialogTitle>
-                      </DialogHeader>
-                      <div className="grid focus:outline-none focus:ring-0 [&_*]:focus:outline-none [&_*]:focus:ring-0">
-                        <div className="gap-3">
-                          <Card className={'p-4 text-white'}>
-                            <CardContent>
-                              <h1 className={'text-lg font-black'}>ABC Inc</h1>
-                              <Label>Amount Owned (Final Valued at 1400)</Label>
-                              <Input id={'balance'} readOnly onChange={(e) => {
-                                return;
-                              }} value={15} type={'number'} className={'mt-3'}/>
-                            </CardContent>
-                          </Card>
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <DialogClose asChild>
-                          <Button className={'text-sm'} variant="outline">Close</Button>
-                        </DialogClose>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <LeaderboardAhh/>
       </div>
     </div>
   );
@@ -264,7 +213,11 @@ const Stocks = () => {
   const [createStockDto, setCreateStockDto] = useState<CreateStockDto>({ name: "", price: 0 });
 
   const getStocks = async () => {
-    const resp = await axios.get(`${serverUrl}/stocks`);
+    const resp = await axios.get(`${serverUrl}/stocks/admin`, {
+      headers: {
+        Authorization: "Basic " + Buffer.from(`${localStorage.getItem('adminUsername')}:${localStorage.getItem('adminPassword')}`).toString("base64"),
+      }
+    });
     setStocks(resp.data);
   }
 
@@ -368,7 +321,11 @@ const NewsThing = () => {
   }
 
   const getStocks = async () => {
-    const resp = await axios.get(`${serverUrl}/stocks`);
+    const resp = await axios.get(`${serverUrl}/stocks/admin`, {
+      headers: {
+        Authorization: "Basic " + Buffer.from(`${localStorage.getItem('adminUsername')}:${localStorage.getItem('adminPassword')}`).toString("base64"),
+      }
+    });
     setStocks(resp.data);
   }
 
@@ -621,6 +578,129 @@ const BigBlackSwitch = () => {
             Ateeb says pause
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+const LeaderboardAhh = () => {
+  const [users, setUsers] = useState<Array<User>>([])
+  const [stocks, setStocks] = useState<Array<Stock>>([])
+
+  const getUsers = async () => {
+    const resp = await axios.get(`${serverUrl}/users/all`, {
+      headers: {
+        Authorization: "Basic " + Buffer.from(`${localStorage.getItem('adminUsername')}:${localStorage.getItem('adminPassword')}`).toString("base64"),
+      }
+    })
+
+    setUsers(resp.data)
+  }
+
+  const getStocks = async () => {
+    const resp = await axios.get(`${serverUrl}/stocks/admin`, {
+      headers: {
+        Authorization: "Basic " + Buffer.from(`${localStorage.getItem('adminUsername')}:${localStorage.getItem('adminPassword')}`).toString("base64"),
+      }
+    });
+    setStocks(resp.data);
+  }
+
+  useEffect(() => {
+    // run once immediately
+    getUsers();
+    getStocks();
+  }, []);
+
+
+  const netWorth = (balance: number, stocksOwned: Array<StockUser>) => {
+    let bal = balance
+    stocksOwned.forEach(s => {
+      bal += (s.amount * (stocks.find(sb => sb._id == s.id )?.price || 0))
+    })
+    return bal
+  }
+
+  return (
+    <Card className={'w-full p-8'}>
+      <CardContent>
+        <h1 className={'text-5xl font-black text-white'}>Scoreboard (you suck) <span className={'text-2xl font-black transition duration-500 hover:opacity-50 cursor-pointer'} onClick={() => {
+          getUsers();
+          getStocks();
+        }}>Refresh</span> </h1>
+        <Table className={'text-white'}>
+          <TableHeader className={'text-white'}>
+            <TableRow className={'text-white'}>
+              <TableHead className="w-[40px] text-white">Position</TableHead>
+              <TableHead className="w-[100px] text-white">Team Name</TableHead>
+              <TableHead className={'text-white'}>Balance</TableHead>
+              <TableHead className={'text-white'}>Net Worth</TableHead>
+              <TableHead className="text-right text-white">Stocks</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {[...users] // make a shallow copy to avoid mutating state
+              .sort(
+                (a, b) =>
+                  netWorth(b.balance, b.stocksOwned) -
+                  netWorth(a.balance, a.stocksOwned) // descending order
+              )
+              .map((user, i) => (
+                <TableRow key={user._id}>
+                  <TableCell className="font-medium">{i + 1}</TableCell>
+                  <TableCell className="font-medium">{user.username}</TableCell>
+                  <TableCell>${user.balance}</TableCell>
+                  <TableCell>
+                    ${netWorth(user.balance, user.stocksOwned)}
+                  </TableCell>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <TableCell className="text-right">Open</TableCell>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px] z-50">
+                      <DialogHeader>
+                        <DialogTitle className="text-primary/60 font-black flex text-xl flex-col">
+                          Stocks of {user.username}
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="grid focus:outline-none focus:ring-0 [&_*]:focus:outline-none [&_*]:focus:ring-0">
+                        <div className="gap-3">
+                          {user.stocksOwned.map((stock) => (
+                            <Card key={stock.id} className="p-4 text-white">
+                              <CardContent>
+                                <h1 className="text-lg font-black">
+                                  {stocks.find((s) => s._id == stock.id)?.name}
+                                </h1>
+                                <Label>
+                                  Amount Owned {stock.buy}{" "}
+                                  {new Date(stock.boughtAt).toLocaleTimeString()}
+                                </Label>
+                                <Input
+                                  id="balance"
+                                  readOnly
+                                  value={stock.amount}
+                                  type="number"
+                                  className="mt-3"
+                                />
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <DialogClose asChild>
+                          <Button className="text-sm" variant="outline">
+                            Close
+                          </Button>
+                        </DialogClose>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </TableRow>
+              ))}
+          </TableBody>
+
+        </Table>
       </CardContent>
     </Card>
   )

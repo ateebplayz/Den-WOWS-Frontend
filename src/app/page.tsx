@@ -22,17 +22,85 @@ import CreditsProgram from "@/components/programs/credits";
 import StockProgram from "@/components/programs/stock_market";
 import BankProgram from "@/components/programs/bank";
 import NewsProgram from "@/components/programs/news";
+import {News, Stock, User} from "@/components/schemas";
+import axios from "axios";
 
-const programComponents: { [key: string]: React.ElementType } = {
-  about: InfoProgram,
-  help: HelpProgram,
-  credits: CreditsProgram,
-  stocks: StockProgram,
-  bank: BankProgram,
-  news: NewsProgram,
-};
+
+const serverUrl = process.env.NEXT_PUBLIC_API_URL;
 
 export default function Home() {
+  const [news, setNews] = useState<Array<News>>([]);
+  const [stocks, setStocks] = useState<Array<Stock>>([]);
+  const [me, setMe] = useState<User | null>(null);
+  const [update, setUpdate] = useState('')
+  const [timeLeft, setTimeLeft] = useState(0)
+
+  const getNews = async () => {
+    try {
+      const resp = await axios.get(`${serverUrl}/news`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        }
+      })
+      const sortedNews = [...resp.data].sort((a, b) => a.sequence - b.sequence)
+      let time = 0
+      sortedNews.forEach(s => time += s.effectAt)
+      await getTimeLeft(time)
+      setUpdate(sortedNews[sortedNews.length - 1].headline);
+      setNews(resp.data)
+    } catch {}
+  }
+
+  const getStocks = async () => {
+    try {
+      const resp = await axios.get(`${serverUrl}/stocks`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        }
+      })
+      setStocks(resp.data)
+    } catch {}
+  }
+
+  const getMe = async () => {
+    try {
+      const resp = await axios.get(`${serverUrl}/users/me`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        }
+      })
+      setMe(resp.data)
+    } catch {}
+  }
+
+  const getTimeLeft = async (totalTime: number) => {
+    try {
+
+      const resp = await axios.get(`${serverUrl}/news/time-left`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        }
+      })
+
+      setTimeLeft(resp.data.timeLeft)
+    } catch {}
+  }
+
+  useEffect(() => {
+    getNews();
+    getStocks();
+    getMe()
+  }, []);
+
+  const programComponents: { [key: string]: React.ReactElement } = {
+    about: <InfoProgram/>,
+    help: <HelpProgram/>,
+    credits: <CreditsProgram/>,
+    stocks: <StockProgram stocks={stocks}/>,
+    bank: <BankProgram me={me} stocks={stocks}/>,
+    news: <NewsProgram articles={news}/>,
+  };
+
   const router = useRouter();
   const [time, setTime] = useState("");
   type WindowState = { name: string; z: number };
@@ -58,8 +126,36 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (timeLeft <= 0) {
+      getNews()
+      getStocks()
+      getMe()
+      return
+    };
+
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timeLeft]);
+
+  useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token || token == 'null') router.push("/login");
+  }, []);
+
+  useEffect(() => {
+    getNews();
+    getStocks();
+    getMe();
+
+    const interval = setInterval(() => {
+      getNews();
+      getStocks();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const programs: {
@@ -116,8 +212,12 @@ export default function Home() {
 
   return (
     <div className="h-screen flex flex-col justify-between items-center p-16 bg-black/50">
-      <h1 className="fixed bottom-4 right-4 text-xs text-white/50 font-light">
-        made with &lt;3 by ateeb sohail
+      <h1 className="fixed bottom-4 z-50 right-4 text-xs text-white/50 font-light">
+        <span className={'text-white font-black transition duration-500 hover:opacity-50 cursor-pointer'} onClick={() => {
+          getNews()
+          getStocks()
+          getMe()
+        }}>Refresh</span> made with &lt;3 by ateeb sohail
       </h1>
 
       <motion.div
@@ -128,7 +228,7 @@ export default function Home() {
       >
         <h1 className="text-3xl font-black text-primary/40">wolves of wall street</h1>
         <h2 className="text-xl font-light text-white/60">desktop edition</h2>
-        <h2 className="text-xl font-light text-white/60">{time}</h2>
+        <h2 className="text-xl font-light text-white/60">{timeLeft}</h2>
         <h2 className="text-xl font-light text-white/60 mt-2">logged in as : ateebsohail</h2>
         <motion.div
           initial={{ opacity: 0, translateY: '50%' }}
@@ -138,7 +238,7 @@ export default function Home() {
           <Card className={'p-0 w-96 mt-8'}>
             <CardContent className={'p-4'}>
               <h1 className={'w-full text-start text-white/80 font-black text-xl'}>Updates</h1>
-              <h1 className={'w-full text-center text-white/30'}>No Updates Found</h1>
+              <h1 className={`w-full text-start ${update ? 'text-white' : 'text-white/30'}`}>{update || "No Updates Found"}</h1>
             </CardContent>
           </Card>
         </motion.div>
@@ -184,7 +284,7 @@ export default function Home() {
             onClick={() => bringToFront(win.name)}
             offset={openWindows.findIndex(w => w.name === win.name) * 7}
           >
-            {ProgramComponent ? <ProgramComponent /> : <p>Unknown program: {win.name}</p>}
+            {ProgramComponent ? ProgramComponent : <p>Unknown program: {win.name}</p>}
           </WindowFrame>
         );
       })}
